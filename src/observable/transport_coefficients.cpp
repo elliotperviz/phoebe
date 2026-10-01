@@ -102,7 +102,7 @@ void TransportCoefficients::calcFromRelaxons(const Eigen::VectorXd &eigenvalues,
   double T = calcStat.temperature / kBoltzmannRy;
 
   std::vector<BaseBandStructure*> bs = {&bandStructure};
-  outputRelaxonsToHDF5(eigenvectors, eigenvalues, bs, theta0, theta_e, phi);
+  outputRelaxonsToHDF5(eigenvectors, eigenvalues, bs, theta0, theta_e, phi, numRelaxons);
 
   // print info about the special eigenvectors ------------------------------
   // and save the indices that need to be skipped
