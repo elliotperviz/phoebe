@@ -29,7 +29,7 @@ void PhononBandsApp::run(Context &context) {
 
   // first we compute the band structure on the fine grid
   Points pathPoints(crystal, context.getPathExtrema(), context.getDeltaPath());
-  bool withVelocities = true;
+  bool withVelocities = context.getOutputGroupVelocities();
   bool withEigenvectors = context.getOutputEigendisplacements();
   FullBandStructure fullBandStructure =
       phononH0.populate(pathPoints, withVelocities, withEigenvectors);
@@ -189,7 +189,7 @@ void outputBandsToJSON(FullBandStructure &fullBandStructure, Context &context,
     tempEns.clear();
 
     // Phonon group velocities in Cartesian coordinates, m/s
-    if (particle.isPhonon()) {
+    if (particle.isPhonon() && context.getOutputGroupVelocities()) {
       Eigen::MatrixXd velocities =
           fullBandStructure.getGroupVelocities(ikIndex);
 
@@ -262,7 +262,7 @@ void outputBandsToJSON(FullBandStructure &fullBandStructure, Context &context,
   output["energyUnit"] = particle.isPhonon() ? "meV" : "eV";
   output["coordsType"] = "lattice";
 
-  if (particle.isPhonon()) {
+  if (particle.isPhonon() && context.getOutputGroupVelocities()) {
     output["groupVelocities"] = outGroupVelocities;
     output["velocityUnit"] = "m/s";
     output["velocityCoordinatesType"] = "cartesian";

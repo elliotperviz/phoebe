@@ -574,6 +574,9 @@ void Context::setupFromInput(const std::string &fileName) {
       if (parameterName == "outputEigendisplacements") {
         outputEigendisplacements = parseBool(val);
       }
+      if (parameterName == "outputGroupVelocities") {
+        outputGroupVelocities = parseBool(val);
+      }
       if (parameterName == "outputUNTimes") {
         outputUNTimes = parseBool(val);
       }
@@ -1163,8 +1166,12 @@ void Context::printInputSummary(const std::string &fileName) {
       std::cout << "electronFourierCutoff = " << electronFourierCutoff
                 << std::endl;
     }
-    std::cout << "---------------------------------------------\n" << std::endl;
-  }
+    if (appName == "phononDos") {
+      std::cout << "outputEigendisplacements = " << outputEigendisplacements
+                << std::endl;
+      std::cout << "outputGroupVelocities = " << outputGroupVelocities
+                << std::endl;
+    }
 
   // band structure variables ----------------------------
   if (appName.find("Bands") != std::string::npos) {
@@ -1177,6 +1184,7 @@ void Context::printInputSummary(const std::string &fileName) {
     if (appName.find("phonon") != std::string::npos) {
       std::cout << "outputEigendisplacements = " << outputEigendisplacements <<
         std::endl;
+      std::cout << "outputGroupVelocities = " << outputGroupVelocities << std::endl;
     }
 
     std::cout << "\nBand Path:" << std::endl;
@@ -1382,6 +1390,7 @@ std::vector<std::string> Context::getPathLabels() { return pathLabels; }
 double Context::getDeltaPath() const { return deltaPath; }
 
 bool Context::getOutputEigendisplacements() const { return outputEigendisplacements; }
+bool Context::getOutputGroupVelocities() const { return outputGroupVelocities; }
 bool Context::getOutputUNTimes() const { return outputUNTimes; }
 
 double Context::getFermiLevel() const { return fermiLevel; }

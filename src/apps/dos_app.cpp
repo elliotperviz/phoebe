@@ -40,7 +40,7 @@ void PhononDosApp::run(Context &context) {
   // first we make compute the band structure on the fine grid
   Points fullPoints(crystal, context.getQMesh());
   fullPoints.setIrreduciblePoints();
-  bool withVelocities = true;
+  bool withVelocities = context.getOutputGroupVelocities();
   bool withEigenvectors = context.getOutputEigendisplacements();
   FullBandStructure fullBandStructure =
       phononH0.populate(fullPoints, withVelocities, withEigenvectors);
@@ -246,7 +246,7 @@ void outputMeshToJSON(FullBandStructure &fullBandStructure, Context &context,
     outEnergies.push_back(std::move(bandEnergies));
 
     // Phonon group velocities in Cartesian coordinates, m/s
-    if (particle.isPhonon()) {
+    if (particle.isPhonon() && context.getOutputGroupVelocities()) {
       Eigen::MatrixXd velocities =
           fullBandStructure.getGroupVelocities(ikIndex);
 
@@ -300,7 +300,7 @@ void outputMeshToJSON(FullBandStructure &fullBandStructure, Context &context,
   output["energyUnit"] = particle.isPhonon() ? "meV" : "eV";
   output["coordsType"] = "crystal";
 
-  if (particle.isPhonon()) {
+  if (particle.isPhonon() && context.getOutputGroupVelocities()) {
     output["groupVelocities"] = outGroupVelocities;
     output["velocityUnit"] = "m/s";
     output["velocityCoordinatesType"] = "cartesian";
