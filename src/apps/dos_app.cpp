@@ -1,5 +1,7 @@
 #include "dos_app.h"
 
+#include <array>
+#include <utility>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -16,6 +18,9 @@
 // app::run functions can remain at the top
 std::tuple<std::vector<double>, std::vector<double>> calcDOS(
         Context& context, FullBandStructure& fullBandStructure);
+
+void outputMeshToJSON(FullBandStructure &fullBandStructure, Context &context,
+        Points &meshPoints, const std::string &outFileName);
 
 void outputDOSToJSON(std::vector<double> energies, std::vector<double> dos,
         Particle& particle, const std::string &outFileName);
@@ -35,8 +40,8 @@ void PhononDosApp::run(Context &context) {
   // first we make compute the band structure on the fine grid
   Points fullPoints(crystal, context.getQMesh());
   fullPoints.setIrreduciblePoints();
-  bool withVelocities = false;
-  bool withEigenvectors = false;
+  bool withVelocities = true;
+  bool withEigenvectors = context.getOutputEigendisplacements();
   FullBandStructure fullBandStructure =
       phononH0.populate(fullPoints, withVelocities, withEigenvectors);
   auto particle = fullBandStructure.getParticle();
@@ -49,6 +54,7 @@ void PhononDosApp::run(Context &context) {
   // save dos to an output file
   // arguments are: energies, dos, particleType, context outFileName
   outputDOSToJSON(energies, dos, particle, "phonon_dos.json");
+  outputMeshToJSON(fullBandStructure, context, fullPoints, "mesh.json");
 
   if (mpi->mpiHead()) {
     std::cout << "Phonon DoS computed." << std::endl;
@@ -197,6 +203,142 @@ void outputDOSToJSON(std::vector<double> energies, std::vector<double> dos,
   std::ofstream o(outFileName);
   o << std::setw(3) << output << std::endl;
   o.close();
+}
+
+/* Output the phonon dispersion on the DOS mesh. Wavevectors are in crystal
+ * reciprocal coordinates, folded into the Wigner-Seitz Brillouin zone. */
+void outputMeshToJSON(FullBandStructure &fullBandStructure, Context &context,
+                      Points &meshPoints, const std::string &outFileName) {
+  if (!mpi->mpiHead()) return;
+
+  auto particle = fullBandStructure.getParticle();
+
+  const int numBands = fullBandStructure.getNumBands();
+  const bool writeEigendisplacements = context.getOutputEigendisplacements();
+  const double energyConversion = particle.isPhonon() ? 1000*energyRyToEv : energyRyToEv;
+
+  std::vector<int> wavevectorIndices;
+  std::vector<std::vector<double>> wavevectorCoordinates;
+  std::vector<std::vector<double>> outEnergies;
+  std::vector<std::vector<std::vector<double>>> outGroupVelocities;
+
+  // [wavevector][band][atom][Cartesian direction][real, imaginary]
+  using ComplexPair = std::array<double, 2>;
+  using AtomDisplacement = std::vector<ComplexPair>;
+  using BandDisplacement = std::vector<AtomDisplacement>;
+  using WavevectorDisplacement = std::vector<BandDisplacement>;
+  std::vector<WavevectorDisplacement> eigendisplacements;
+
+  for (int ik = 0; ik < meshPoints.getNumPoints(); ++ik) {
+    WavevectorIndex ikIndex(ik);
+    wavevectorIndices.push_back(ik);
+
+    auto point = meshPoints.getPoint(ik);
+    auto coord = point.getCoordinates(Points::crystalCoordinates, true);
+    wavevectorCoordinates.push_back({coord[0], coord[1], coord[2]});
+
+    Eigen::VectorXd energies = fullBandStructure.getEnergies(ikIndex);
+    std::vector<double> bandEnergies;
+    bandEnergies.reserve(numBands);
+    for (int ib = 0; ib < numBands; ++ib) {
+      bandEnergies.push_back(energies(ib) * energyConversion);
+    }
+    outEnergies.push_back(std::move(bandEnergies));
+
+    // Phonon group velocities in Cartesian coordinates, m/s
+    if (particle.isPhonon()) {
+      Eigen::MatrixXd velocities =
+          fullBandStructure.getGroupVelocities(ikIndex);
+
+      std::vector<std::vector<double>> bandVelocities;
+
+      for (int ib = 0; ib < numBands; ib++) {
+        bandVelocities.push_back({
+            velocities(ib, 0) * velocityRyToSi,
+            velocities(ib, 1) * velocityRyToSi,
+            velocities(ib, 2) * velocityRyToSi
+        });
+      }
+
+      outGroupVelocities.push_back(bandVelocities);
+    }
+
+    if (writeEigendisplacements && particle.isPhonon()) {
+      // getPhEigenvectors() returns mass-scaled phonon displacements,
+      // with indices (Cartesian direction, atom, band).
+
+      const int numAtoms = numBands / 3;
+      auto eigenvectors = fullBandStructure.getPhEigenvectors(ikIndex);
+
+      WavevectorDisplacement modeDisplacements;
+      modeDisplacements.reserve(numBands);
+
+      for (int ib = 0; ib < numBands; ++ib) {
+        BandDisplacement atomDisplacements;
+        atomDisplacements.reserve(numAtoms);
+        for (int ia = 0; ia < numAtoms; ++ia) {
+          AtomDisplacement displacement;
+          displacement.reserve(3);
+          for (int idir = 0; idir < 3; ++idir) {
+            auto value = eigenvectors(idir, ia, ib) * distanceBohrToAng;
+            displacement.push_back({value.real(), value.imag()});
+          }
+          atomDisplacements.push_back(std::move(displacement));
+        }
+        modeDisplacements.push_back(std::move(atomDisplacements));
+      }
+      eigendisplacements.push_back(std::move(modeDisplacements));
+    }
+  }
+
+  nlohmann::json output;
+  output["wavevectorIndices"] = wavevectorIndices;
+  output["wavevectorCoordinates"] = wavevectorCoordinates;
+  output["numBands"] = numBands;
+  output["energies"] = outEnergies;
+  output["particleType"] = particle.isPhonon() ? "phonon" : "electron";
+  output["energyUnit"] = particle.isPhonon() ? "meV" : "eV";
+  output["coordsType"] = "crystal";
+
+  if (particle.isPhonon()) {
+    output["groupVelocities"] = outGroupVelocities;
+    output["velocityUnit"] = "m/s";
+    output["velocityCoordinatesType"] = "cartesian";
+  }
+
+  if (writeEigendisplacements && particle.isPhonon()) {
+    Crystal crystal = meshPoints.getCrystal();
+
+    const int numAtoms = numBands / 3;
+    auto atomPositions = crystal.getAtomicPositions();
+
+    std::vector<std::vector<double>> latticeVectors;
+    std::vector<std::vector<double>> atomPositionsCartesian;
+
+    for (int i = 0; i < 3; ++i) {
+      latticeVectors.push_back({
+          crystal.getDirectUnitCell()(i, 0) * distanceBohrToAng,
+          crystal.getDirectUnitCell()(i, 1) * distanceBohrToAng,
+          crystal.getDirectUnitCell()(i, 2) * distanceBohrToAng});
+    }
+    for (int ia = 0; ia < numAtoms; ++ia) {
+      atomPositionsCartesian.push_back({
+          atomPositions(ia, 0) * distanceBohrToAng,
+          atomPositions(ia, 1) * distanceBohrToAng,
+          atomPositions(ia, 2) * distanceBohrToAng});
+    }
+
+    output["numAtoms"] = numAtoms;
+    output["phononEigendisplacements"] = eigendisplacements;
+    output["coordsTypePhononEigendisplacements"] = "cartesian";
+    output["latticeVectors"] = latticeVectors;
+    output["distanceUnit"] = "Angstrom";
+    output["atomPositionsCartesian"] = atomPositionsCartesian;
+    output["atomSpecies"] = crystal.getAtomicNames();
+  }
+
+  std::ofstream out(outFileName);
+  out << std::setw(3) << output << std::endl;
 }
 
 void PhononDosApp::checkRequirements(Context &context) {

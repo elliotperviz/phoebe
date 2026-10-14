@@ -29,12 +29,12 @@ void PhononBandsApp::run(Context &context) {
 
   // first we compute the band structure on the fine grid
   Points pathPoints(crystal, context.getPathExtrema(), context.getDeltaPath());
-  bool withVelocities = false;
+  bool withVelocities = true;
   bool withEigenvectors = context.getOutputEigendisplacements();
   FullBandStructure fullBandStructure =
       phononH0.populate(pathPoints, withVelocities, withEigenvectors);
 
-  // output the contents of the band structure to file 
+  // output the contents of the band structure to file
   outputBandsToJSON(fullBandStructure, context, pathPoints,
                     "phonon_bands.json");
 
@@ -116,6 +116,7 @@ void outputBandsToJSON(FullBandStructure &fullBandStructure, Context &context,
     return;
 
   std::vector<std::vector<double>> outEnergies;
+  std::vector<std::vector<std::vector<double>>> outGroupVelocities;
   std::vector<int> wavevectorIndices;
   std::vector<double> tempEns;
   std::vector<std::vector<std::vector<std::vector<std::complex<double>>>>> eigendisplacements;
@@ -187,6 +188,24 @@ void outputBandsToJSON(FullBandStructure &fullBandStructure, Context &context,
     outEnergies.push_back(tempEns);
     tempEns.clear();
 
+    // Phonon group velocities in Cartesian coordinates, m/s
+    if (particle.isPhonon()) {
+      Eigen::MatrixXd velocities =
+          fullBandStructure.getGroupVelocities(ikIndex);
+
+      std::vector<std::vector<double>> bandVelocities;
+
+      for (int ib = 0; ib < numBands; ib++) {
+        bandVelocities.push_back({
+            velocities(ib, 0) * velocityRyToSi,
+            velocities(ib, 1) * velocityRyToSi,
+            velocities(ib, 2) * velocityRyToSi
+        });
+      }
+
+      outGroupVelocities.push_back(bandVelocities);
+    }
+
     if(context.getOutputEigendisplacements() && particle.isPhonon()) {
       // these should be "with mass scaling" which would make them phonon
       // eigendisplacements already
@@ -242,6 +261,13 @@ void outputBandsToJSON(FullBandStructure &fullBandStructure, Context &context,
   output["particleType"] = particle.isPhonon() ? "phonon" : "electron";
   output["energyUnit"] = particle.isPhonon() ? "meV" : "eV";
   output["coordsType"] = "lattice";
+
+  if (particle.isPhonon()) {
+    output["groupVelocities"] = outGroupVelocities;
+    output["velocityUnit"] = "m/s";
+    output["velocityCoordinatesType"] = "cartesian";
+  }
+
   if(context.getOutputEigendisplacements() && particle.isPhonon()) {
     output["phononEigendisplacements"] = eigendisplacements;
     output["coordsTypePhononEigendisplacements"] = "cartesian";
