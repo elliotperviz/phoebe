@@ -73,8 +73,8 @@ class Context {
   std::vector<std::string> pathLabels;
   double deltaPath = 0.05;
 
-  bool outputEigendisplacements = false; // used by bands app if phonon eigdisps are dumped
-  bool outputGroupVelocities = false; // optional phonon group velocities in JSON output
+  bool outputEigendisplacements = false; // used by bands and dos apps if phonon eigdisps are dumped
+  bool outputGroupVelocities = false; // optional phonon group velocities in JSON output, used by bands and dos apps
   bool outputUNTimes = false; // triggers scattering matrix to output times for U and N processes
 
   double constantRelaxationTime = std::numeric_limits<double>::quiet_NaN();

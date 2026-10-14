@@ -95,7 +95,7 @@ void TransportCoefficients::calcFromRelaxons(const Eigen::VectorXd &eigenvalues,
   }
 
   numRelaxons = (context.getNumRelaxonsEigenvalues() > 0) ? context.getNumRelaxonsEigenvalues() : eigenvectors.rows();
-  numRelaxonsToOutput = (context.getNumRelaxonsToOutput() > 0) ? context.getNumRelaxonsToOutput() : numRelaxons;
+  const int numRelaxonsToOutput = (context.getNumRelaxonsToOutput() > 0) ? context.getNumRelaxonsToOutput() : numRelaxons;
 
   if (context.getNumRelaxonsToOutput() < 0) {
     Error("numRelaxonsToOutput cannot be negative.");

@@ -1172,6 +1172,7 @@ void Context::printInputSummary(const std::string &fileName) {
       std::cout << "outputGroupVelocities = " << outputGroupVelocities
                 << std::endl;
     }
+  }
 
   // band structure variables ----------------------------
   if (appName.find("Bands") != std::string::npos) {
