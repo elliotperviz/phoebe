@@ -21,7 +21,7 @@ void outputRelaxonsToHDF5(ParallelMatrix<double>& eigenvectors,
                       const Eigen::VectorXd& theta0,
                       const Eigen::VectorXd& theta_e,
                       const Eigen::MatrixXd& phi,
-                      int numRelaxonsToOutput = 50,
+                      int numRelaxonsToOutput,
                       bool isCoupled = false
                     );
 
@@ -87,7 +87,7 @@ int relaxonEigenvectorOverlap(ParallelMatrix<double>& eigenvectors,
                                       const Eigen::MatrixXd& Ve,
                                       const Eigen::Tensor<double, 3>& Vphi,
                                       const Particle& particle,
-                                      int numRelaxons);
+                                      int numRelaxonsToOutput);
 
   /** Outputs the out of eq population to file
    * @param eigenvectors: eigenvectors of the scattering matrix

@@ -546,18 +546,18 @@ void outputRelaxonVelocitiesToHDF5(const Eigen::VectorXd& eigenvalues,
                                       const Eigen::MatrixXd& Ve,
                                       const Eigen::Tensor<double, 3>& Vphi,
                                       const Particle& particle,
-                                      int numRelaxons) {
+                                      int numRelaxonsToOutput) {
 
   double energyToTime = particle.isPhonon() ? energyRyToFs * 1e-3 / twoPi : energyRyToFs;
 
-  Eigen::VectorXd tau = energyToTime * eigenvalues.array().inverse();
-  Eigen::MatrixXd Vphi_x = Eigen::MatrixXd::Zero(numRelaxons, 3);
-  Eigen::MatrixXd Vphi_y = Eigen::MatrixXd::Zero(numRelaxons, 3);
-  Eigen::MatrixXd Vphi_z = Eigen::MatrixXd::Zero(numRelaxons, 3);
-  Eigen::MatrixXd V0_out = V0; // copy because we will add a unit conversion
-  Eigen::MatrixXd Ve_out = Ve;
+  Eigen::VectorXd tau = energyToTime * eigenvalues.head(numRelaxonsToOutput).array().inverse();
+  Eigen::MatrixXd Vphi_x = Eigen::MatrixXd::Zero(numRelaxonsToOutput, 3);
+  Eigen::MatrixXd Vphi_y = Eigen::MatrixXd::Zero(numRelaxonsToOutput, 3);
+  Eigen::MatrixXd Vphi_z = Eigen::MatrixXd::Zero(numRelaxonsToOutput, 3);
+  Eigen::MatrixXd V0_out = V0.topRows(numRelaxonsToOutput); // copy because we will add a unit conversion
+  Eigen::MatrixXd Ve_out = Ve.topRows(numRelaxonsToOutput);
   // Seems there is not a clear way to slice this, so I will loop to copy it
-  for(int alpha = 0; alpha < numRelaxons; alpha++) {
+  for(int alpha = 0; alpha < numRelaxonsToOutput; alpha++) {
     for(auto i : {0,1,2}) {
       Vphi_x(alpha, i) = Vphi(alpha, 0, i);
       Vphi_y(alpha, i) = Vphi(alpha, 1, i);
@@ -581,7 +581,7 @@ void outputRelaxonVelocitiesToHDF5(const Eigen::VectorXd& eigenvalues,
     H5Easy::dump(file, "/Vphi_x", Vphi_x);
     H5Easy::dump(file, "/Vphi_y", Vphi_y);
     H5Easy::dump(file, "/Vphi_z", Vphi_z);
-    H5Easy::dump(file, "/numRelaxons", numRelaxons);
+    H5Easy::dump(file, "/numRelaxons", numRelaxonsToOutput);
   }
 }
 

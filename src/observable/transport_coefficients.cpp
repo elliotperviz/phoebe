@@ -95,6 +95,16 @@ void TransportCoefficients::calcFromRelaxons(const Eigen::VectorXd &eigenvalues,
   }
 
   numRelaxons = (context.getNumRelaxonsEigenvalues() > 0) ? context.getNumRelaxonsEigenvalues() : eigenvectors.rows();
+  numRelaxonsToOutput = (context.getNumRelaxonsToOutput() > 0) ? context.getNumRelaxonsToOutput() : numRelaxons;
+
+  if (context.getNumRelaxonsToOutput() < 0) {
+    Error("numRelaxonsToOutput cannot be negative.");
+  }
+
+  if (numRelaxonsToOutput > numRelaxons) {
+    Error("numRelaxonsToOutput cannot exceed the number of calculated relaxons.");
+  }
+
   Particle particle = bandStructure.getParticle();
   int iCalc = 0; // zero index, because we only run one for relaxons
   auto calcStat = statisticsSweep.getCalcStatistics(iCalc);
@@ -233,7 +243,7 @@ void TransportCoefficients::calcFromRelaxons(const Eigen::VectorXd &eigenvalues,
 
   // output relaxons eigenvectors ------------------------------
   std::vector<BaseBandStructure*> bs = {&bandStructure};
-  outputRelaxonsToHDF5(eigenvectors, eigenvalues, bs, theta0, theta_e, phi);
+  outputRelaxonsToHDF5(eigenvectors, eigenvalues, bs, theta0, theta_e, phi, numRelaxonsToOutput);
 
   outputRelaxonContributionsToJSON(statisticsSweep, particle, dimensionality,
                                     sigmaContrib, kappaContrib,
@@ -262,7 +272,7 @@ void TransportCoefficients::calcFromRelaxons(const Eigen::VectorXd &eigenvalues,
   }
 
   // output relaxon velocities -----------------------------
-  outputRelaxonVelocitiesToHDF5(eigenvalues, V0, Ve, Vphi, particle, numRelaxons);
+  outputRelaxonVelocitiesToHDF5(eigenvalues, V0, Ve, Vphi, particle, numRelaxonsToOutput);
 
   // copy S and sigma into final tensors to be printed,  convert sigma -> mobility
   if(particle.isElectron()) {

@@ -136,6 +136,8 @@ class Context {
 
   // number of eigenvalues to use the in the relaxons solver
   int numRelaxonsEigenvalues = 0;
+  // number of eigenvalues to print out to hdf5
+  int numRelaxonsToOutput = 0;
   // toggle the check for negative relaxons eigenvalues in few eigenvalues case
   bool checkNegativeRelaxons = true;
   // toggle the enforcement of the matrix being positive semidefinite
@@ -433,6 +435,9 @@ public:
 
   int getNumRelaxonsEigenvalues() const;
   void setNumRelaxonsEigenvalues(const int &x);
+
+  int getNumRelaxonsToOutput() const;
+  void setNumRelaxonsToOutput(const int &x);
 
   bool getCheckNegativeRelaxons() const;
   bool setCheckNegativeRelaxons() const;
